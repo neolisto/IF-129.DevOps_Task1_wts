@@ -37,4 +37,4 @@ sudo mvn package
 
 # java-app start
 cd target/
-sudo java -jar eschool.jar
+nohup java -jar eschool.jar &
