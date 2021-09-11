@@ -36,12 +36,12 @@ sudo mysql < db_creating.tmp
 
 #creating user
 echo 'creating USER'
-echo 'CREATE USER '\''spark'\''@'\''%'\'' IDENTIFIED BY '\''Qwerty12345'\'';' > user_creating.tmp
+echo 'CREATE USER '\'${DATASOURCE_USERNAME}\''@'\''%'\'' IDENTIFIED BY '\'${DATASOURCE_PASSWORD}\'';' > user_creating.tmp
 sudo mysql < user_creating.tmp
 
 #granting privileges to user
 echo 'granting PRIVILEGES'
-echo 'GRANT ALL PRIVILEGES ON *.* TO '\''spark'\''@'\''%'\'';' > db_prev.tmp
+echo 'GRANT ALL PRIVILEGES ON *.* TO '\'${DATASOURCE_USERNAME}\''@'\''%'\'';' > db_prev.tmp
 sudo mysql < db_prev.tmp
 
 #removing temporary files
