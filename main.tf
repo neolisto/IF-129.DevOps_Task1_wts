@@ -35,7 +35,6 @@ resource "aws_internet_gateway" "gw" {
   }
 }
 
-
 // creating subnet for VM's
 resource "aws_subnet" "project_subnet" {
   cidr_block = "10.0.0.0/24"
@@ -62,15 +61,6 @@ resource "aws_route_table" "prod-public-crt" {
   }
 }
 
-// creating AWS Elastic IP
-resource "aws_eip" "test" {
-  vpc = true
-
-  instance = aws_instance.mysql_db_srv.id
-  associate_with_private_ip = "10.0.0.111"
-  depends_on = [aws_internet_gateway.gw]
-}
-
 // connection subnet with routing table
 resource "aws_route_table_association" "prod-crta-public-subnet-1" {
   subnet_id = aws_subnet.project_subnet.id
@@ -87,14 +77,21 @@ resource "aws_security_group" "mysql_database_server" {
     from_port        = 3306
     to_port          = 3306
     protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
+    cidr_blocks      = ["10.0.0.112/24"]
+  }
+
+  ingress    {
+    from_port        = 3306
+    to_port          = 3306
+    protocol         = "tcp"
+    cidr_blocks      = ["10.0.0.113/24"]
   }
 
   ingress    {
     from_port        = 22
     to_port          = 22
     protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
+    cidr_blocks      = ["10.0.0.114/24"]
   }
 
   egress    {
@@ -137,14 +134,14 @@ resource "aws_security_group" "be_server_sg" {
     from_port        = 8080
     to_port          = 8080
     protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
+    cidr_blocks      = ["10.0.0.114/24"]
   }
 
   ingress    {
     from_port        = 22
     to_port          = 22
     protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
+    cidr_blocks      = ["10.0.0.114/24"]
   }
 
   egress    {
@@ -199,7 +196,7 @@ resource "aws_instance" "be2_srv" {
 
 resource "aws_security_group" "loadbalancer" {
   name        = "allow_LB"
-  description = "Allow web inbound traffic"
+  description = "Allow traffic to/from loadbalancer"
   vpc_id = aws_vpc.default.id
 
   ingress    {
@@ -229,7 +226,7 @@ resource "aws_security_group" "loadbalancer" {
 }
 
 // creating instance - nginx-loadbalancer
-resource "aws_instance" "nginx-balancer" {
+resource "aws_instance" "nginx_balancer" {
   ami                    = "ami-0a8e758f5e873d1c1"
   instance_type          = "t2.micro"
   vpc_security_group_ids = [aws_security_group.loadbalancer.id]
@@ -242,6 +239,6 @@ resource "aws_instance" "nginx-balancer" {
   })
 
   tags = {
-    Name = "nginx-loadbalancer"
+    Name = "nginx_loadbalancer"
   }
 }
