@@ -13,8 +13,13 @@ provider "aws" {}
 variable "DATASOURCE_USERNAME" {}
 
 // setting password for user in eSchool database
-
 variable "DATASOURCE_PASSWORD" {}
+
+// creating AWS key resource for ssh-connect
+resource "aws_key_pair" "ec2_keys" {
+  key_name = "aws_key"
+  public_key = file("aws_key.pub")
+}
 
 // creating of AWS VPC
 resource "aws_vpc" "default" {
@@ -78,21 +83,21 @@ resource "aws_security_group" "mysql_database_server" {
     from_port        = 3306
     to_port          = 3306
     protocol         = "tcp"
-    cidr_blocks      = ["10.0.0.112/24"]
+    cidr_blocks      = ["10.0.0.112/32"]
   }
 
   ingress    {
     from_port        = 3306
     to_port          = 3306
     protocol         = "tcp"
-    cidr_blocks      = ["10.0.0.113/24"]
+    cidr_blocks      = ["10.0.0.113/32"]
   }
 
   ingress    {
     from_port        = 22
     to_port          = 22
     protocol         = "tcp"
-    cidr_blocks      = ["10.0.0.114/24"]
+    cidr_blocks      = ["10.0.0.114/32"]
   }
 
   egress    {
@@ -115,6 +120,14 @@ resource "aws_instance" "mysql_db_srv" {
   subnet_id = aws_subnet.project_subnet.id
   vpc_security_group_ids = [aws_security_group.mysql_database_server.id]
 
+  key_name = "aws_key"
+  connection {
+    type        = "ssh"
+    host        = self.public_ip
+    user = "ubuntu"
+    private_key = file("aws_key")
+  }
+
   user_data = templatefile("mysql_db_srv_startup.sh.tpl", {
     DATASOURCE_USERNAME = var.DATASOURCE_USERNAME
     DATASOURCE_PASSWORD = var.DATASOURCE_PASSWORD
@@ -135,14 +148,14 @@ resource "aws_security_group" "be_server_sg" {
     from_port        = 8080
     to_port          = 8080
     protocol         = "tcp"
-    cidr_blocks      = ["10.0.0.114/24"]
+    cidr_blocks      = ["10.0.0.114/32"]
   }
 
   ingress    {
     from_port        = 22
     to_port          = 22
     protocol         = "tcp"
-    cidr_blocks      = ["10.0.0.114/24"]
+    cidr_blocks      = ["10.0.0.114/32"]
   }
 
   egress    {
@@ -165,6 +178,14 @@ resource "aws_instance" "be1_srv" {
   private_ip = "10.0.0.112"
   subnet_id = aws_subnet.project_subnet.id
 
+  key_name = "aws_key"
+  connection {
+    type        = "ssh"
+    host        = self.public_ip
+    user = "ubuntu"
+    private_key = file("aws_key")
+  }
+
   user_data = templatefile("be_srv_startup.sh.tpl", {
     DATASOURCE_USERNAME = var.DATASOURCE_USERNAME
     DATASOURCE_PASSWORD = var.DATASOURCE_PASSWORD
@@ -183,6 +204,14 @@ resource "aws_instance" "be2_srv" {
   vpc_security_group_ids = [aws_security_group.be_server_sg.id]
   private_ip = "10.0.0.113"
   subnet_id = aws_subnet.project_subnet.id
+
+  key_name = "aws_key"
+  connection {
+    type        = "ssh"
+    host        = self.public_ip
+    user = "ubuntu"
+    private_key = file("aws_key")
+  }
 
   user_data = templatefile("be_srv_startup.sh.tpl", {
     DATASOURCE_USERNAME = var.DATASOURCE_USERNAME
@@ -233,6 +262,14 @@ resource "aws_instance" "nginx_balancer" {
   vpc_security_group_ids = [aws_security_group.loadbalancer.id]
   private_ip = "10.0.0.114"
   subnet_id = aws_subnet.project_subnet.id
+
+  key_name = "aws_key"
+  connection {
+    type        = "ssh"
+    host        = self.public_ip
+    user = "ubuntu"
+    private_key = file("aws_key")
+  }
 
   user_data = templatefile("lb_srv_startup.sh.tpl", {
     BE1_SRV_IP = aws_instance.be1_srv.private_ip
