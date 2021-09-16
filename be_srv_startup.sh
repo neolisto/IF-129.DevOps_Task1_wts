@@ -14,6 +14,8 @@ sudo apt install openjdk-8-jdk -y
 sudo apt install maven -y
 
 # downloading eSchool project
+mkdir /application
+cd /application
 git clone https://github.com/yurkovskiy/eSchool.git
 
 # work-directory changing
