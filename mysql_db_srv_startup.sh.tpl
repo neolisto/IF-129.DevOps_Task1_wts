@@ -57,6 +57,7 @@ sudo sed -i 's/127.0.0.1/0.0.0.0/g' /etc/mysql/mysql.conf.d/mysqld.cnf
 sudo echo 'done'
 
 #restarting mysql service with new parameters
+sudo systemctl enable mysql
 sudo echo 'restart mysql'
 sudo systemctl restart mysql
 sudo echo 'done'
