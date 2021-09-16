@@ -4,6 +4,7 @@
 sudo apt update
 sudo apt upgrade -y
 
+# exporting user data for Java-application
 export DATASOURCE_USERNAME=${DATASOURCE_USERNAME}
 export DATASOURCE_PASSWORD=${DATASOURCE_PASSWORD}
 
@@ -14,6 +15,8 @@ sudo apt install openjdk-8-jdk -y
 sudo apt install maven -y
 
 # downloading eSchool project
+sudo mkdir /application
+cd /application
 git clone https://github.com/yurkovskiy/eSchool.git
 
 # work-directory changing
@@ -35,6 +38,13 @@ sudo mvn clean
 
 # maven packg build start
 sudo mvn package
+
+# auto loading after reboot
+sudo echo "#!bin/bash" > tmp123
+sudo echo "sudo nohup java -jar /application/eSchool/target/eschool.jar &" >> tmp123
+sudo cat tmp123 > /etc/rc.local
+sudo rm -r tmp123
+sudo chmod +x /etc/rc.local
 
 # java-app start
 cd target/
