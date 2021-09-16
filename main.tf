@@ -13,6 +13,7 @@ provider "aws" {}
 variable "DATASOURCE_USERNAME" {}
 
 // setting password for user in eSchool database
+
 variable "DATASOURCE_PASSWORD" {}
 
 // creating of AWS VPC
