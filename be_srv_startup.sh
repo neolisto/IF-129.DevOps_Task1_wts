@@ -7,6 +7,8 @@ sudo apt upgrade -y
 export DATASOURCE_USERNAME=some_value
 export DATASOURCE_PASSWORD=some_value
 
+# test string
+
 # installing OpenJDK v.8
 sudo apt install openjdk-8-jdk -y
 
