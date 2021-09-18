@@ -41,18 +41,6 @@ resource "aws_internet_gateway" "gw" {
   }
 }
 
-// creating subnet for VM's
-resource "aws_subnet" "project_subnet" {
-  cidr_block = "10.0.0.0/24"
-  vpc_id = aws_vpc.default.id
-  map_public_ip_on_launch = true
-  availability_zone = "eu-west-1a"
-
-  tags = {
-    Name = "project subnet"
-  }
-}
-
 // creating routing table for VPC instances
 resource "aws_route_table" "prod-public-crt" {
   vpc_id = aws_vpc.default.id
@@ -67,11 +55,31 @@ resource "aws_route_table" "prod-public-crt" {
   }
 }
 
+// creating subnet for VM's
+resource "aws_subnet" "project_subnet" {
+  cidr_block = "10.0.0.0/24"
+  vpc_id = aws_vpc.default.id
+  map_public_ip_on_launch = true
+  availability_zone = "eu-west-1a"
+
+  tags = {
+    Name = "project subnet"
+  }
+}
+
 // connection subnet with routing table
 resource "aws_route_table_association" "prod-crta-public-subnet-1" {
   subnet_id = aws_subnet.project_subnet.id
   route_table_id = aws_route_table.prod-public-crt.id
 }
+
+/*
+-------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------
+----------------------------------- PRODUCTION ENVIRONMENT CONFIGURATION ------------------------------------------
+-------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------
+*/
 
 // creating Security group for MySQL database server
 resource "aws_security_group" "mysql_database_server" {
@@ -98,6 +106,13 @@ resource "aws_security_group" "mysql_database_server" {
     to_port          = 22
     protocol         = "tcp"
     cidr_blocks      = ["10.0.0.114/32"]
+  }
+
+  ingress    {
+    from_port        = 8111
+    to_port          = 8111
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
   }
 
   egress    {
@@ -131,6 +146,8 @@ resource "aws_instance" "mysql_db_srv" {
   user_data = templatefile("mysql_db_srv_startup.sh.tpl", {
     DATASOURCE_USERNAME = var.DATASOURCE_USERNAME
     DATASOURCE_PASSWORD = var.DATASOURCE_PASSWORD
+    CI_CD_IP  = aws_instance.ci_cd.private_ip
+    AGENT_NAME = "mysql_db_server"
   })
 
   tags = {
@@ -149,6 +166,13 @@ resource "aws_security_group" "be_server_sg" {
     to_port          = 8080
     protocol         = "tcp"
     cidr_blocks      = ["10.0.0.114/32"]
+  }
+
+  ingress    {
+    from_port        = 8111
+    to_port          = 8111
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
   }
 
   ingress    {
@@ -190,6 +214,8 @@ resource "aws_instance" "be1_srv" {
     DATASOURCE_USERNAME = var.DATASOURCE_USERNAME
     DATASOURCE_PASSWORD = var.DATASOURCE_PASSWORD
     DB_SRV_IP = aws_instance.mysql_db_srv.private_ip
+    CI_CD_IP  = aws_instance.ci_cd.private_ip
+    AGENT_NAME = "be1_server"
   })
 
   tags = {
@@ -217,6 +243,8 @@ resource "aws_instance" "be2_srv" {
     DATASOURCE_USERNAME = var.DATASOURCE_USERNAME
     DATASOURCE_PASSWORD = var.DATASOURCE_PASSWORD
     DB_SRV_IP = aws_instance.mysql_db_srv.private_ip
+    CI_CD_IP  = aws_instance.ci_cd.private_ip
+    AGENT_NAME = "be2_server"
   })
 
   tags = {
@@ -224,6 +252,7 @@ resource "aws_instance" "be2_srv" {
   }
 }
 
+// creating nginx load-balancer security group
 resource "aws_security_group" "loadbalancer" {
   name        = "allow_LB"
   description = "Allow traffic to/from loadbalancer"
@@ -255,7 +284,7 @@ resource "aws_security_group" "loadbalancer" {
   }
 }
 
-// creating instance - nginx-loadbalancer
+// creating instance - nginx-load-balancer
 resource "aws_instance" "nginx_balancer" {
   ami                    = "ami-0a8e758f5e873d1c1"
   instance_type          = "t2.micro"
@@ -278,5 +307,125 @@ resource "aws_instance" "nginx_balancer" {
 
   tags = {
     Name = "nginx_loadbalancer"
+  }
+}
+
+/*
+-------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------
+----------------------------------- TESTING ENVIRONMENT CONFIGURATION ---------------------------------------------
+-------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------
+*/
+
+// creating of CI/CD server security group
+resource "aws_security_group" "ci_cd" {
+  name        = "allow_ci_cd"
+  description = "Allow traffic to/from CI/CD server"
+  vpc_id = aws_vpc.default.id
+
+  ingress    {
+    from_port        = 8111
+    to_port          = 8111
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+
+  ingress    {
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+
+  egress    {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "connection pattern for CI/CD server"
+  }
+}
+
+// creating instance - CI/CD server (TeamCity)
+resource "aws_instance" "ci_cd" {
+  ami                    = "ami-0a8e758f5e873d1c1"
+  instance_type          = "t2.medium"
+  vpc_security_group_ids = [aws_security_group.ci_cd.id]
+  private_ip = "10.0.0.115"
+  subnet_id = aws_subnet.project_subnet.id
+
+  key_name = "aws_key"
+  connection {
+    type        = "ssh"
+    host        = self.public_ip
+    user = "ubuntu"
+    private_key = file("aws_key")
+  }
+
+  user_data = templatefile("ci_cd_server_startup.sh.tpl", {})
+
+  tags = {
+    Name = "CI/CD server (TeamCity)"
+  }
+}
+
+// creating MySQL database test server
+resource "aws_instance" "mysql_test_srv" {
+  ami                    = "ami-0a8e758f5e873d1c1"
+  instance_type          = "t2.micro"
+  private_ip = "10.0.0.117"
+  subnet_id = aws_subnet.project_subnet.id
+  vpc_security_group_ids = [aws_security_group.mysql_database_server.id]
+
+  key_name = "aws_key"
+  connection {
+    type        = "ssh"
+    host        = self.public_ip
+    user = "ubuntu"
+    private_key = file("aws_key")
+  }
+
+  user_data = templatefile("mysql_db_srv_startup.sh.tpl", {
+    DATASOURCE_USERNAME = var.DATASOURCE_USERNAME
+    DATASOURCE_PASSWORD = var.DATASOURCE_PASSWORD
+    CI_CD_IP  = aws_instance.ci_cd.private_ip
+    AGENT_NAME = "mysql_test_server"
+  })
+
+  tags = {
+    Name = "mysql_test_server"
+  }
+}
+
+// creating instance - BE test server
+resource "aws_instance" "be_test_srv" {
+  ami                    = "ami-0a8e758f5e873d1c1"
+  instance_type          = "t2.small"
+  vpc_security_group_ids = [aws_security_group.be_server_sg.id]
+  private_ip = "10.0.0.116"
+  subnet_id = aws_subnet.project_subnet.id
+
+  key_name = "aws_key"
+  connection {
+    type        = "ssh"
+    host        = self.public_ip
+    user = "ubuntu"
+    private_key = file("aws_key")
+  }
+
+  user_data = templatefile("be_srv_startup.sh.tpl", {
+    DATASOURCE_USERNAME = var.DATASOURCE_USERNAME
+    DATASOURCE_PASSWORD = var.DATASOURCE_PASSWORD
+    DB_SRV_IP = aws_instance.mysql_test_srv.private_ip
+    CI_CD_IP  = aws_instance.ci_cd.private_ip
+    AGENT_NAME = "be_test_server"
+  })
+
+  tags = {
+    Name = "be_test_server"
   }
 }
