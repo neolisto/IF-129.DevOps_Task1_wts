@@ -40,7 +40,7 @@ sudo mvn clean
 sudo mvn package
 
 # auto loading after reboot
-sudo echo "#!bin/bash" > tmp123
+sudo echo "#!"/bin"/bash""" > tmp123
 sudo echo "sudo nohup java -jar /application/eSchool/target/eschool.jar &" >> tmp123
 sudo cat tmp123 > /etc/rc.local
 sudo rm -r tmp123
