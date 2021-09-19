@@ -12,7 +12,7 @@ Software required to run this application:
 
 # Project schem:
 
-![Image of schem](https://i.imgur.com/sLhMusR.jpg)
+![Image of schem](https://i.imgur.com/vZRU6z7.jpg)
 
 # Installation process via Terraform:
 #### 0. clone this project by git clone:
