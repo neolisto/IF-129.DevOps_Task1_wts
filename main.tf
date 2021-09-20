@@ -373,13 +373,59 @@ resource "aws_instance" "ci_cd" {
   }
 }
 
+// creating Security group for MySQL test server
+resource "aws_security_group" "mysql_test_server" {
+  name        = "allow_test_mysql"
+  description = "Allow mysql inbound traffic"
+  vpc_id = aws_vpc.default.id
+
+  ingress    {
+    from_port        = 3306
+    to_port          = 3306
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+
+  ingress    {
+    from_port        = 3306
+    to_port          = 3306
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+
+  ingress    {
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+
+  ingress    {
+    from_port        = 8111
+    to_port          = 8111
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+
+  egress    {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "connection pattern for mysql test server"
+  }
+}
+
 // creating MySQL database test server
 resource "aws_instance" "mysql_test_srv" {
   ami                    = "ami-0a8e758f5e873d1c1"
   instance_type          = "t2.micro"
   private_ip = "10.0.0.117"
   subnet_id = aws_subnet.project_subnet.id
-  vpc_security_group_ids = [aws_security_group.mysql_database_server.id]
+  vpc_security_group_ids = [aws_security_group.mysql_test_server.id]
 
   key_name = "aws_key"
   connection {
@@ -401,11 +447,51 @@ resource "aws_instance" "mysql_test_srv" {
   }
 }
 
+// creating Security group for WEB-test-server (BE+FE)
+resource "aws_security_group" "be_test_sg" {
+  name        = "allow_test_web"
+  description = "Allow web inbound traffic"
+  vpc_id = aws_vpc.default.id
+
+  ingress    {
+    from_port        = 8080
+    to_port          = 8080
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+
+  ingress    {
+    from_port        = 8111
+    to_port          = 8111
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+
+  ingress    {
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+
+  egress    {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "connection pattern for web-test-server"
+  }
+}
+
+
 // creating instance - BE test server
 resource "aws_instance" "be_test_srv" {
   ami                    = "ami-0a8e758f5e873d1c1"
   instance_type          = "t2.small"
-  vpc_security_group_ids = [aws_security_group.be_server_sg.id]
+  vpc_security_group_ids = [aws_security_group.be_test_sg.id]
   private_ip = "10.0.0.116"
   subnet_id = aws_subnet.project_subnet.id
 
@@ -428,4 +514,40 @@ resource "aws_instance" "be_test_srv" {
   tags = {
     Name = "be_test_server"
   }
+}
+
+# creating Terraform outputs
+output "nginx_load_balancer_public_ip" {
+  value = aws_instance.nginx_balancer.public_ip
+  description = "Public IP of your nginx load-balancer server"
+}
+
+output "be1_server_public_ip" {
+  value = aws_instance.be1_srv.public_ip
+  description = "Public IP of your web-server #1"
+}
+
+output "be2_server_public_ip" {
+  value = aws_instance.be2_srv.public_ip
+  description = "Public IP of your web-server #2"
+}
+
+output "mysql_server_public_ip" {
+  value = aws_instance.mysql_db_srv.public_ip
+  description = "Public IP of your web-server #2"
+}
+
+output "ci_cd_public_ip" {
+  value = aws_instance.ci_cd.public_ip
+  description = "Public IP of your CI/CD server"
+}
+
+output "mysql_test_server_public_ip" {
+  value = aws_instance.mysql_test_srv.public_ip
+  description = "Public IP of your MySQL-test server"
+}
+
+output "be_test_server_public_ip" {
+  value = aws_instance.be_test_srv.public_ip
+  description = "Public IP of your test web-server"
 }
